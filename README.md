@@ -147,9 +147,20 @@ charmcraft pack
 ## Compatibility
 
 - Juju ≥ 3.0
-- Ubuntu 22.04 (Jammy) — primary build target
-- Ubuntu 24.04 (Noble) — runtime compatible (requires charmcraft ≥ 4.x for native builds)
+- Ubuntu 22.04 (Jammy), 24.04 (Noble), 26.04 (Resolute)
 - Wazuh agent version ≤ Wazuh server version (Wazuh compatibility constraint)
+
+### Building for multiple platforms
+
+```bash
+# Build for a specific Ubuntu release (requires charmcraft ≥ 4.0)
+charmcraft pack --platform ubuntu@22.04:amd64
+charmcraft pack --platform ubuntu@24.04:amd64
+charmcraft pack --platform ubuntu@26.04:amd64
+
+# Cross-build 22.04/24.04 from a 26.04 host via LXD
+charmcraft pack --platform ubuntu@22.04:amd64 --use-lxd
+```
 
 ## License
 
