@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wazuh Agent Operator — AI x Ops Hackathon</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css">
+<style>
+  :root {
+    --r-heading-font: 'Ubuntu', system-ui, sans-serif;
+    --r-main-font: 'Ubuntu', system-ui, sans-serif;
+    --r-heading-color: #E95420;
+    --r-main-color: #eee;
+    --r-link-color: #E95420;
+  }
+  .reveal h1, .reveal h2, .reveal h3 { text-transform: none; font-weight: 400; }
+  .reveal h2 { color: #E95420; }
+  .reveal pre { font-size: 0.55em; width: 100%; box-shadow: none; }
+  .reveal code { background: #2d2d2d; padding: 2px 6px; border-radius: 4px; }
+  .reveal .tag { display: inline-block; background: #E95420; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.7em; margin: 2px; }
+  .reveal .tag.green { background: #0e8420; }
+  .reveal .tag.blue { background: #007aa6; }
+  .reveal table { font-size: 0.7em; margin: auto; }
+  .reveal th { background: #E95420; color: #fff; padding: 8px 14px; }
+  .reveal td { padding: 6px 14px; border-bottom: 1px solid #444; }
+  .reveal ul { list-style: none; }
+  .reveal ul li::before { content: "▸ "; color: #E95420; }
+  .reveal .box { border: 2px solid #444; border-radius: 10px; padding: 20px; margin: 10px; display: inline-block; vertical-align: top; }
+  .reveal .box.highlight { border-color: #E95420; }
+  .reveal .emoji-head { font-size: 2em; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- SLIDE 1 — Title -->
+<section>
+  <h1 style="font-size:1.6em">🤖 Wazuh Agent Operator</h1>
+  <p style="font-size:1em; margin-top:0">AI-Powered Juju Charm Development</p>
+  <br>
+  <p style="font-size:0.65em; opacity:0.7">Canonical Hackathon — Building Things with AI</p>
+  <p style="font-size:0.5em; opacity:0.5">May 2026</p>
+</section>
+
+<!-- SLIDE 2 — What We Built -->
+<section>
+  <h2>📦 What We Built</h2>
+  <div style="display:flex; gap:20px; justify-content:center; margin-top:20px;">
+    <div class="box highlight" style="flex:1">
+      <p class="emoji-head">🧩</p>
+      <h3>Juju Charm</h3>
+      <p style="font-size:0.6em"><code>wazuh-agent-operator</code></p>
+      <p style="font-size:0.55em">Machine charm using the <code>ops</code> framework</p>
+      <p style="font-size:0.55em">7 actions, 10 config options, relation-driven enrollment</p>
+    </div>
+    <div class="box highlight" style="flex:1">
+      <p class="emoji-head">🖥️</p>
+      <h3>Test Environment</h3>
+      <p style="font-size:0.55em">Wazuh 4.11.0 stack:<br>Manager + Indexer + Dashboard</p>
+      <p style="font-size:0.55em">Agent enrolled, sending events, visible in dashboard</p>
+    </div>
+  </div>
+  <br>
+  <p style="font-size:0.6em; opacity:0.8">All built in ~2 hours with a single prompt</p>
+</section>
+
+<!-- SLIDE 3 — Architecture -->
+<section>
+  <h2>🏗️ How It Works</h2>
+  <div style="font-size:0.55em">
+    <div style="display:flex; gap:15px; justify-content:center; align-items:center; margin-bottom:15px;">
+      <div class="box" style="flex:1; text-align:left">
+        <strong style="color:#E95420">Charm (Machine)</strong><br>
+        <code>wazuh-agent-operator</code><br><br>
+        ▸ Installs Wazuh agent from APT<br>
+        ▸ Configures <code>ossec.conf</code> via XML<br>
+        ▸ Auto-enrolls on relation join<br>
+        ▸ Publishes status to peers
+      </div>
+      <span style="font-size:2em">⇄</span>
+      <div class="box" style="flex:1; text-align:left">
+        <strong style="color:#E95420">Relation Interface</strong><br>
+        <code>wazuh-server</code><br><br>
+        <code>manager-address</code><br>
+        <code>enrollment-password</code><br>
+        <code>manager-port</code> · <code>registration-port</code><br>
+        <code>protocol</code> · <code>version</code>
+      </div>
+      <span style="font-size:2em">⇄</span>
+      <div class="box" style="flex:1; text-align:left">
+        <strong style="color:#E95420">Wazuh Server</strong><br>
+        <code>wazuh-server-operator</code><br><br>
+        ▸ Manager (port 1514)<br>
+        ▸ Indexer (OpenSearch)<br>
+        ▸ Dashboard (Kibana-based)
+      </div>
+    </div>
+    <p style="font-size:0.9em; color:#888">→ Optional subordinate deployment via <code>juju-info</code> relation</p>
+  </div>
+</section>
+
+<!-- SLIDE 4 — AI in Action -->
+<section>
+  <h2>⚡ AI-Powered Development</h2>
+  <table>
+    <tr><th>Phase</th><th>AI Did</th><th>Time Saved</th></tr>
+    <tr>
+      <td>🔨 Charm skeleton</td>
+      <td>Generated <code>charm.py</code> (450 lines), <code>wazuh_server.py</code> lib, config, actions, metadata — all from a description</td>
+      <td>~4 hours</td>
+    </tr>
+    <tr>
+      <td>🧪 Unit tests</td>
+      <td>Authored 20+ tests covering status, config, relations, package lifecycle</td>
+      <td>~2 hours</td>
+    </tr>
+    <tr>
+      <td>🖥️ Environment</td>
+      <td>Installed microk8s, Juju 3.6, Docker Compose, LXD — debugged snap confinement, user groups, networking</td>
+      <td>~3 hours</td>
+    </tr>
+    <tr>
+      <td>🐛 Debugging</td>
+      <td>Resolved Wazuh version mismatch (4.14.5 → 4.11.0), agent enrollment, DPKG conffile prompts, authd.pass config</td>
+      <td>~2 hours</td>
+    </tr>
+    <tr>
+      <td>📝 Docs</td>
+      <td>README, LICENSE, inline comments, architecture diagram</td>
+      <td>~1 hour</td>
+    </tr>
+  </table>
+  <p style="font-size:0.55em; margin-top:12px">
+    <span class="tag">~12h saved</span>
+    <span class="tag green">Single prompt</span>
+    <span class="tag blue">Zero manual code</span>
+  </p>
+</section>
+
+<!-- SLIDE 5 — Live Demo -->
+<section>
+  <h2>🎬 Live Environment</h2>
+  <div style="font-size:0.6em">
+    <div style="display:flex; gap:20px; justify-content:center; flex-wrap:wrap;">
+      <div class="box highlight" style="min-width:200px">
+        <strong>Wazuh Dashboard</strong><br>
+        <code>https://10.197.95.152</code><br>
+        <span style="font-size:0.8em">user: <code>kibanaserver</code></span>
+      </div>
+      <div class="box highlight" style="min-width:200px">
+        <strong>Juju Controller</strong><br>
+        <code>microk8s-local</code><br>
+        <span style="font-size:0.8em">Model: <code>wazuh-server</code></span>
+      </div>
+    </div>
+    <br>
+    <pre><code class="language-bash"># Agent is enrolled and sending events
+$ sudo docker exec wazuh.manager agent_control -l
+  ID: 000  Name: wazuh.manager  Active/Local
+  ID: 001  Name: dev-agent-vm    Active ✓
+
+# Charm ready to deploy
+$ cd wazuh-agent-operator && charmcraft pack
+# → Relate to wazuh-server-operator → agent auto-enrolls</code></pre>
+    <br>
+    <p>
+      <span class="tag">Wazuh 4.11.0</span>
+      <span class="tag">Juju 3.6</span>
+      <span class="tag">microk8s 1.34</span>
+      <span class="tag">ops framework</span>
+    </p>
+    <p style="font-size:0.9em; margin-top:10px; opacity:0.8">
+      <a href="https://github.com/juju/charm-wazuh-agent-operator" style="color:#E95420">github.com/juju/charm-wazuh-agent-operator</a>
+    </p>
+  </div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/highlight/highlight.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    center: true,
+    transition: 'slide',
+    plugins: [ RevealHighlight ]
+  });
+</script>
+</body>
+</html>
