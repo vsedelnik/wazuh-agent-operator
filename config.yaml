@@ -81,3 +81,19 @@ options:
     description: >
       Pin the wazuh-agent package to prevent accidental upgrades.
       Recommended for version consistency with the Wazuh server.
+
+  wazuh-agent-version:
+    type: string
+    default: ""
+    description: >
+      Specific wazuh-agent version to install (e.g. "4.11.0-1").
+      If empty, installs the latest available. Set this to match
+      your Wazuh server version to avoid compatibility issues.
+
+  wazuh-agent-use-any-ip:
+    type: boolean
+    default: true
+    description: >
+      Register the agent with IP "any" when enrolling. This allows
+      the agent to connect from behind NAT gateways (Docker, LXD
+      bridges, etc.) where the manager sees a different source IP.

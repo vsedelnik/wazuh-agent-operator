@@ -6,6 +6,8 @@
 
 import logging
 import os
+import pwd
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -24,10 +26,9 @@ WAZUH_KEYRING_PATH = "/usr/share/keyrings/wazuh.gpg"
 WAZUH_SOURCES_LIST = "/etc/apt/sources.list.d/wazuh.list"
 WAZUH_OSSEC_CONF = "/var/ossec/etc/ossec.conf"
 WAZUH_CLIENT_KEYS = "/var/ossec/etc/client.keys"
+WAZUH_AUTHD_PASS = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_STATE_FILE = "/var/ossec/var/run/wazuh-agentd.state"
-
-# Default package hold to prevent upgrades
-DPKG_SELECTIONS_FILE = "/var/lib/dpkg/info/wazuh-agent.list"
+WAZUH_AGENT_AUTH_BIN = "/var/ossec/bin/agent-auth"
 
 PEER_RELATION_NAME = "agent-peers"
 
@@ -133,34 +134,19 @@ class WazuhAgentManager:
 
     def _install_package(self) -> None:
         """Run apt-get install for wazuh-agent with optional enrollment vars."""
+        version = self._charm.config.get("wazuh-agent-version", "").strip()
+        pkg_spec = f"wazuh-agent={version}" if version else "wazuh-agent"
+
         env = os.environ.copy()
-        self._set_env_if_set(env, "WAZUH_MANAGER", self._effective_manager_address())
-        self._set_env_if_set(env, "WAZUH_MANAGER_PORT", str(self._charm.config.get("wazuh-manager-port", 1514)))
+        # Clear WAZUH_* env vars to avoid conflicting with manual config
+        for k in list(env.keys()):
+            if k.startswith("WAZUH_"):
+                del env[k]
+        env["DEBIAN_FRONTEND"] = "noninteractive"
 
-        registration_addr = self._effective_registration_address()
-        if registration_addr:
-            env["WAZUH_REGISTRATION_SERVER"] = registration_addr
-        self._set_env_if_set(env, "WAZUH_REGISTRATION_PORT",
-                             str(self._charm.config.get("wazuh-registration-port", 1515)))
-        self._set_env_if_set(env, "WAZUH_REGISTRATION_PASSWORD",
-                             self._charm.config.get("wazuh-registration-password", ""))
-        self._set_env_if_set(env, "WAZUH_AGENT_NAME",
-                             self._charm.config.get("wazuh-agent-name", ""))
-        self._set_env_if_set(env, "WAZUH_AGENT_GROUP",
-                             self._charm.config.get("wazuh-agent-group", ""))
-        self._set_env_if_set(env, "WAZUH_PROTOCOL",
-                             self._charm.config.get("wazuh-protocol", "tcp"))
-        self._set_env_if_set(env, "WAZUH_KEEP_ALIVE_INTERVAL",
-                             str(self._charm.config.get("wazuh-keep-alive-interval", 10)))
-        self._set_env_if_set(env, "WAZUH_TIME_RECONNECT",
-                             str(self._charm.config.get("wazuh-time-reconnect", 30)))
-
-        # Filter out empty values (WAZUH_* variables must be non-empty)
-        env = {k: v for k, v in env.items() if not k.startswith("WAZUH_") or v}
-
-        logger.info("Running apt-get install with environment variables")
+        logger.info("Installing package: %s", pkg_spec)
         result = subprocess.run(
-            ["apt-get", "install", "-y", "wazuh-agent"],
+            ["apt-get", "install", "-y", "--allow-downgrades", pkg_spec],
             env=env,
             capture_output=True,
             text=True,
@@ -169,6 +155,9 @@ class WazuhAgentManager:
         if result.returncode != 0:
             logger.error("Failed to install wazuh-agent: %s", result.stderr)
             raise RuntimeError(f"Failed to install wazuh-agent: {result.stderr}")
+
+        # Fix any dpkg configuration issues (conffile prompts)
+        _run_command(["dpkg", "--configure", "-a"], timeout=30)
 
         # Reload systemd and enable the service
         _run_command(["systemctl", "daemon-reload"])
@@ -247,14 +236,14 @@ class WazuhAgentManager:
         # wrap them in a dummy root for valid XML parsing.
         try:
             import xml.etree.ElementTree as ET
-        except ImportError:
-            logger.error("xml.etree.ElementTree unavailable; cannot update ossec.conf.")
-            return False
 
-        with open(WAZUH_OSSEC_CONF, "r") as f:
-            raw = f.read()
-        wrapped = "<wazuh_root>" + raw + "</wazuh_root>"
-        root = ET.fromstring(wrapped)
+            with open(WAZUH_OSSEC_CONF, "r") as f:
+                raw = f.read()
+            wrapped = "<wazuh_root>" + raw + "</wazuh_root>"
+            root = ET.fromstring(wrapped)
+        except Exception as e:
+            logger.error("Failed to parse ossec.conf XML: %s", e)
+            return False
 
         changed = False
 
@@ -283,7 +272,10 @@ class WazuhAgentManager:
         # Update enrollment section
         enrollment_addr = self._effective_registration_address()
         enrollment_port = str(self._charm.config.get("wazuh-registration-port", 1515))
-        enrollment_pwd = self._charm.config.get("wazuh-registration-password", "") or self._get_relation_enrollment_password()
+        enrollment_pwd = (
+            self._charm.config.get("wazuh-registration-password", "")
+            or self._get_relation_enrollment_password()
+        )
         agent_name = self._charm.config.get("wazuh-agent-name", "")
         agent_group = self._charm.config.get("wazuh-agent-group", "")
 
@@ -302,9 +294,9 @@ class WazuhAgentManager:
 
                 auth_pass = enrollment.find("authorization_pass_path")
                 if auth_pass is not None and enrollment_pwd:
-                    # Write the password to authd.pass and update the path
-                    auth_pass_path = "/var/ossec/etc/authd.pass"
-                    Path(auth_pass_path).write_text(enrollment_pwd)
+                    auth_pass_path = WAZUH_AUTHD_PASS
+                    Path(auth_pass_path).write_text(enrollment_pwd + "\n")
+                    self._secure_file(auth_pass_path, "root", "wazuh", 0o640)
                     auth_pass.text = auth_pass_path
                     changed = True
 
@@ -328,16 +320,32 @@ class WazuhAgentManager:
 
         # Write back if changed
         if changed:
-            # Serialize each <ossec_config> block back as individual XML documents
-            blocks = []
-            for child in root:
-                block = ET.tostring(child, encoding="unicode")
-                blocks.append(block.strip())
-            with open(WAZUH_OSSEC_CONF, "w") as f:
-                f.write("\n\n".join(blocks) + "\n")
-            logger.info("ossec.conf updated successfully.")
+            try:
+                # Serialize each <ossec_config> block back individually
+                blocks = []
+                for child in root:
+                    block = ET.tostring(child, encoding="unicode")
+                    blocks.append(block.strip())
+                with open(WAZUH_OSSEC_CONF, "w") as f:
+                    f.write("\n\n".join(blocks) + "\n")
+                logger.info("ossec.conf updated successfully.")
+            except Exception as e:
+                logger.error("Failed to write ossec.conf: %s", e)
+                return False
 
         return changed
+
+    @staticmethod
+    def _secure_file(path: str, owner: str, group: str, mode: int) -> None:
+        """Set ownership and permissions on a file. Best-effort."""
+        try:
+            uid = pwd.getpwnam(owner).pw_uid
+            import grp
+            gid = grp.getgrnam(group).gr_gid
+            os.chown(path, uid, gid)
+            os.chmod(path, mode)
+        except Exception as e:
+            logger.warning("Could not secure %s: %s", path, e)
 
     # ------------------------------------------------------------------
     # Service lifecycle
@@ -395,8 +403,7 @@ class WazuhAgentManager:
         agent_group: Optional[str] = None,
     ) -> str:
         """Manually enroll the agent using agent-auth."""
-        auth_bin = "/var/ossec/bin/agent-auth"
-        if not Path(auth_bin).exists():
+        if not Path(WAZUH_AGENT_AUTH_BIN).exists():
             return "agent-auth binary not found. Is the Wazuh agent installed?"
 
         addr = manager_address or self._effective_manager_address()
@@ -407,9 +414,14 @@ class WazuhAgentManager:
         if not password:
             password = self._get_relation_enrollment_password()
         if not password:
-            return "No enrollment password configured. Set wazuh-registration-password or integrate with wazuh-server."
+            return "No enrollment password configured."
 
-        cmd = [auth_bin, "-m", addr, "-P", password]
+        # Write password to authd.pass with proper permissions
+        Path(WAZUH_AUTHD_PASS).parent.mkdir(parents=True, exist_ok=True)
+        Path(WAZUH_AUTHD_PASS).write_text(password + "\n")
+        self._secure_file(WAZUH_AUTHD_PASS, "root", "wazuh", 0o640)
+
+        cmd = [WAZUH_AGENT_AUTH_BIN, "-m", addr, "-P", WAZUH_AUTHD_PASS]
         name = agent_name or self._charm.config.get("wazuh-agent-name", "")
         if name:
             cmd += ["-A", name]
@@ -420,12 +432,28 @@ class WazuhAgentManager:
         port = str(self._charm.config.get("wazuh-registration-port", 1515))
         cmd += ["-p", port]
 
-        rc, stdout, stderr = _run_command(cmd, timeout=30)
+        # If using IP "any", let the manager assign the IP
+        if self._charm.config.get("wazuh-agent-use-any-ip", True):
+            cmd += ["-i"]
+
+        rc, stdout, stderr = _run_command(cmd, timeout=60)
         if rc == 0:
             logger.info("Agent enrolled successfully: %s", stdout)
+            # Secure client.keys after enrollment
+            if Path(WAZUH_CLIENT_KEYS).exists():
+                self._secure_file(WAZUH_CLIENT_KEYS, "root", "wazuh", 0o640)
             return f"Enrollment successful: {stdout}"
         else:
             logger.error("Agent enrollment failed: %s", stderr)
+            # Surface actionable error messages
+            if "Invalid password" in stderr:
+                return ("Enrollment failed: Invalid password. Verify the Wazuh server "
+                        "has use_password=yes in authd config and the password matches.")
+            if "Duplicate" in stderr:
+                return ("Enrollment failed: Duplicate agent. The agent is already registered "
+                        "on the server. Remove it from the server or use a different agent name.")
+            if "Connection refused" in stderr:
+                return f"Enrollment failed: Connection refused to {addr}:{port}."
             return f"Enrollment failed (rc={rc}): {stderr}"
 
     def show_config(self) -> str:
@@ -539,10 +567,28 @@ class WazuhAgentCharm(ops.CharmBase):
             self.unit.status = BlockedStatus("Wazuh agent not installed")
             return
 
-        changed = self.agent.configure_ossec()
-        if changed and self.agent.is_running:
+        try:
+            self.agent.configure_ossec()
+        except Exception as e:
+            logger.error("ossec.conf update failed: %s", e)
+            self.unit.status = BlockedStatus(f"Config error: {e}")
+            return
+
+        # Auto-enroll if we have manager + password but no key yet
+        manager = self.agent._effective_manager_address()
+        if manager and not Path(WAZUH_CLIENT_KEYS).exists():
+            pwd = self.agent._charm.config.get("wazuh-registration-password", "")
+            if pwd or self.agent._get_relation_enrollment_password():
+                logger.info("No client.keys found; attempting auto-enrollment")
+                self.unit.status = MaintenanceStatus("Enrolling with Wazuh server…")
+                result = self.agent.enroll_agent()
+                logger.info("Enrollment result: %s", result)
+                if "failed" in result.lower() or "Error" in result:
+                    self.unit.status = BlockedStatus(result[:100])
+                    return
+
+        if self.agent.is_running:
             self.agent.restart()
-            logger.info("Agent restarted after configuration change.")
 
         self._update_status()
 
@@ -677,6 +723,9 @@ class WazuhAgentCharm(ops.CharmBase):
             return
 
         if self.agent.is_running:
+            if not Path(WAZUH_CLIENT_KEYS).exists():
+                self.unit.status = WaitingStatus("Agent running; awaiting enrollment")
+                return
             version = self.agent._get_agent_version()
             self.unit.status = ActiveStatus(f"Agent v{version} connected to {manager}")
         else:
