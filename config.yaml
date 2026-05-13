@@ -1,0 +1,99 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+options:
+  wazuh-manager-address:
+    type: string
+    default: ""
+    description: >
+      IP address or hostname of the Wazuh manager (server). If empty,
+      the value will be obtained from the wazuh-server relation.
+      Supports comma-separated list of managers for high availability.
+
+  wazuh-manager-port:
+    type: int
+    default: 1514
+    description: >
+      Port for agent-manager communication (ossec-remoted). Default: 1514.
+
+  wazuh-protocol:
+    type: string
+    default: "tcp"
+    description: >
+      Communication protocol between the agent and the manager.
+      Values: tcp, udp.
+
+  wazuh-registration-address:
+    type: string
+    default: ""
+    description: >
+      Wazuh enrollment server address. If empty, falls back to
+      wazuh-manager-address. Used during initial agent enrollment.
+
+  wazuh-registration-port:
+    type: int
+    default: 1515
+    description: >
+      Port for agent enrollment (authd). Default: 1515.
+
+  wazuh-registration-password:
+    type: string
+    default: ""
+    description: >
+      Enrollment password for authenticating the agent with the Wazuh
+      server during registration. If empty, obtained from the
+      wazuh-server relation.
+
+  wazuh-agent-name:
+    type: string
+    default: ""
+    description: >
+      Custom agent name reported to the Wazuh server. If empty,
+      defaults to the machine hostname.
+
+  wazuh-agent-group:
+    type: string
+    default: ""
+    description: >
+      Comma-separated list of Wazuh groups to assign the agent to.
+
+  wazuh-keep-alive-interval:
+    type: int
+    default: 10
+    description: >
+      Time (in seconds) between agent keep-alive checks to the manager.
+
+  wazuh-time-reconnect:
+    type: int
+    default: 30
+    description: >
+      Time (in seconds) to wait before reconnecting after a connection loss.
+
+  wazuh-repository-url:
+    type: string
+    default: "https://packages.wazuh.com/4.x/apt/"
+    description: >
+      Custom Wazuh APT repository URL. Defaults to the official 4.x repo.
+
+  disable-auto-updates:
+    type: boolean
+    default: true
+    description: >
+      Pin the wazuh-agent package to prevent accidental upgrades.
+      Recommended for version consistency with the Wazuh server.
+
+  wazuh-agent-version:
+    type: string
+    default: ""
+    description: >
+      Specific wazuh-agent version to install (e.g. "4.11.0-1").
+      If empty, installs the latest available. Set this to match
+      your Wazuh server version to avoid compatibility issues.
+
+  wazuh-agent-use-any-ip:
+    type: boolean
+    default: true
+    description: >
+      Register the agent with IP "any" when enrolling. This allows
+      the agent to connect from behind NAT gateways (Docker, LXD
+      bridges, etc.) where the manager sees a different source IP.

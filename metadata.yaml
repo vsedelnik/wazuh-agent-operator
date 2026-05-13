@@ -1,0 +1,71 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: wazuh-agent
+display-name: Wazuh Agent
+summary: Wazuh agent for endpoint security monitoring.
+description: |
+  A Juju charm deploying and managing the [Wazuh Agent](https://wazuh.com/)
+  on machine substrates.
+
+  The Wazuh agent is a lightweight, multi-platform endpoint security agent
+  that collects security event data, performs local integrity checks, and
+  forwards results to the Wazuh server for analysis and threat detection.
+
+  This charm handles installation, enrollment, configuration, and lifecycle
+  management of the Wazuh agent on Ubuntu machines.
+
+  ## Integrations
+
+  - **wazuh-server**: Connects to a Wazuh server charm to obtain the
+    manager address, enrollment credentials, and registration details.
+    The agent auto-enrolls when this relation is established.
+
+  - **juju-info** (optional): Can be deployed as a subordinate charm
+    alongside any principal charm to monitor the host.
+
+  ## Usage
+
+  ### Standalone deployment
+
+  ```bash
+  juju deploy wazuh-agent
+  juju integrate wazuh-agent wazuh-server
+  ```
+
+  ### Subordinate deployment
+
+  ```bash
+  juju deploy wazuh-agent --subordinate
+  juju integrate wazuh-agent:juju-info some-principal-charm
+  juju integrate wazuh-agent wazuh-server
+  ```
+
+  ### With explicit configuration
+
+  ```bash
+  juju deploy wazuh-agent \
+    --config wazuh-agent-name="web-server-01" \
+    --config wazuh-agent-group="production,web"
+  ```
+
+docs: https://documentation.wazuh.com/
+source: https://github.com/canonical/wazuh-agent-operator
+issues: https://github.com/canonical/wazuh-agent-operator/issues
+website: https://wazuh.com/
+assumes:
+  - juju >= 3.0
+
+subordinate: false
+
+requires:
+  wazuh-server:
+    interface: wazuh_server
+    description: |
+      Relation with a Wazuh server charm providing manager address,
+      enrollment credentials, and registration configuration.
+    limit: 1
+
+peers:
+  agent-peers:
+    interface: wazuh_agent_peers

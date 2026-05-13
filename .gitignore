@@ -1,0 +1,44 @@
+# Charm builds
+*.charm
+build/
+*.zip
+*.tar.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+eggs/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Juju
+*.juju*
+
+# Temp
+tmp/
+*.tmp
+*.log
