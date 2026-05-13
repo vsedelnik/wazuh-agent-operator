@@ -33,17 +33,22 @@ The Wazuh agent is a lightweight, multi-platform endpoint security agent that co
 ### Prerequisites
 
 - Juju 3.0+ controller
-- An Ubuntu 22.04 or 24.04 machine
+- A principal charm already deployed (e.g., `ubuntu`, `openstack-compute`, `kubernetes-worker`, `microcloud`)
 
-### Standalone Deployment
+### Deploy alongside a principal charm
 
 ```bash
-# Deploy the agent
+# Deploy the Wazuh agent as a subordinate charm
 juju deploy wazuh-agent
+
+# Attach it to your principal charm (e.g., a Kubernetes worker)
+juju integrate wazuh-agent:juju-info kubernetes-worker
 
 # Integrate with a Wazuh server
 juju integrate wazuh-agent wazuh-server
 ```
+
+The agent installs on every machine where the principal charm runs.
 
 ### With Configuration
 
@@ -52,17 +57,16 @@ juju deploy wazuh-agent \
   --config wazuh-agent-name="web-server-01" \
   --config wazuh-agent-group="production,web" \
   --config wazuh-manager-address="wazuh.internal"
-
-juju integrate wazuh-agent wazuh-server
 ```
 
-### Subordinate Deployment
+### Common principal charms
 
-```bash
-juju deploy wazuh-agent --subordinate
-juju integrate wazuh-agent:juju-info ubuntu
-juju integrate wazuh-agent wazuh-server
-```
+| Principal Charm | Use Case |
+|-----------------|----------|
+| `ubuntu` | Generic Ubuntu machines |
+| `openstack-compute` | OpenStack compute nodes |
+| `kubernetes-worker` | Kubernetes worker nodes |
+| `microcloud` | MicroCloud nodes |
 
 ## Configuration
 
@@ -143,7 +147,8 @@ charmcraft pack
 ## Compatibility
 
 - Juju ≥ 3.0
-- Ubuntu 22.04 (Jammy) or 24.04 (Noble)
+- Ubuntu 22.04 (Jammy) — primary build target
+- Ubuntu 24.04 (Noble) — runtime compatible (requires charmcraft ≥ 4.x for native builds)
 - Wazuh agent version ≤ Wazuh server version (Wazuh compatibility constraint)
 
 ## License

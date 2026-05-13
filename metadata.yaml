@@ -17,27 +17,19 @@ description: |
 
   ## Integrations
 
+  - **juju-info**: Standard subordinate relation. Connect to any principal
+    charm (e.g., `ubuntu`, `openstack-compute`, `kubernetes-worker`,
+    `microcloud`) to deploy the Wazuh agent on that principal's machines.
+
   - **wazuh-server**: Connects to a Wazuh server charm to obtain the
     manager address, enrollment credentials, and registration details.
     The agent auto-enrolls when this relation is established.
 
-  - **juju-info** (optional): Can be deployed as a subordinate charm
-    alongside any principal charm to monitor the host.
-
   ## Usage
-
-  ### Standalone deployment
 
   ```bash
   juju deploy wazuh-agent
-  juju integrate wazuh-agent wazuh-server
-  ```
-
-  ### Subordinate deployment
-
-  ```bash
-  juju deploy wazuh-agent --subordinate
-  juju integrate wazuh-agent:juju-info some-principal-charm
+  juju integrate wazuh-agent:juju-info my-principal-charm
   juju integrate wazuh-agent wazuh-server
   ```
 
@@ -56,9 +48,17 @@ website: https://wazuh.com/
 assumes:
   - juju >= 3.0
 
-subordinate: false
+subordinate: true
 
 requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+    description: |
+      Standard subordinate relation. Connect to any principal charm
+      (e.g. ubuntu, openstack-compute, kubernetes-worker, microcloud)
+      to deploy the Wazuh agent on that principal's machines.
+
   wazuh-server:
     interface: wazuh_server
     description: |

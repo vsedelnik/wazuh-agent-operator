@@ -500,6 +500,14 @@ class WazuhAgentCharm(ops.CharmBase):
             self.on["wazuh-server"].relation_broken, self._on_wazuh_server_broken
         )
 
+        # Subordinate relation (juju-info from principal)
+        self.framework.observe(
+            self.on["juju-info"].relation_joined, self._on_juju_info_joined
+        )
+        self.framework.observe(
+            self.on["juju-info"].relation_broken, self._on_juju_info_broken
+        )
+
         # Actions
         self.framework.observe(self.on.start_action, self._on_start_action)
         self.framework.observe(self.on.stop_action, self._on_stop_action)
@@ -628,6 +636,44 @@ class WazuhAgentCharm(ops.CharmBase):
         """Handle Wazuh server relation removal."""
         logger.warning("Wazuh server relation removed. Agent will retain last configuration.")
         self.unit.status = BlockedStatus("Wazuh server relation removed")
+
+    def _on_juju_info_joined(self, event: ops.RelationJoinedEvent) -> None:
+        """Subordinate deployed alongside a principal charm.
+
+        Triggered when a principal charm (e.g. ubuntu, openstack-compute,
+        kubernetes-worker, microcloud) links via juju-info. The subordinate
+        installs the Wazuh agent on the principal's machine.
+        """
+        logger.info("juju-info relation joined — deploying Wazuh agent alongside principal")
+        if not self.agent._is_installed():
+            self.unit.status = MaintenanceStatus("Installing Wazuh agent…")
+            try:
+                self.agent.install()
+            except Exception as e:
+                logger.error("Subordinate install failed: %s", e)
+                self.unit.status = BlockedStatus(f"Install failed: {e}")
+                event.defer()
+                return
+
+        # Auto-enroll if server config is available
+        manager = self.agent._effective_manager_address()
+        if manager and not Path(WAZUH_CLIENT_KEYS).exists():
+            pwd = self.agent._charm.config.get("wazuh-registration-password", "")
+            if pwd or self.agent._get_relation_enrollment_password():
+                self.unit.status = MaintenanceStatus("Enrolling with Wazuh server…")
+                self.agent.enroll_agent()
+
+        if not self.agent.is_running:
+            self.agent.start()
+
+        self._update_status()
+
+    def _on_juju_info_broken(self, _: ops.RelationBrokenEvent) -> None:
+        """Principal charm removed — subordinate is being torn down."""
+        logger.info("juju-info relation broken — stopping Wazuh agent")
+        if self.agent._is_installed() and self.agent.is_running:
+            self.agent.stop()
+        self.unit.status = BlockedStatus("Principal relation removed")
 
     # ------------------------------------------------------------------
     # Actions
