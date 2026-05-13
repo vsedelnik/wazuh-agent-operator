@@ -1,0 +1,46 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+start:
+  description: Start the Wazuh agent service.
+  params: {}
+
+stop:
+  description: Stop the Wazuh agent service.
+  params: {}
+
+restart:
+  description: Restart the Wazuh agent service.
+  params: {}
+
+status:
+  description: Report the current status of the Wazuh agent.
+  params: {}
+
+show-config:
+  description: Show the effective ossec.conf client configuration.
+  params: {}
+
+reconnect:
+  description: Force the agent to reconnect to the Wazuh manager.
+  params: {}
+
+enroll-agent:
+  description: Manually enroll an agent with the Wazuh server.
+  params:
+    manager-address:
+      type: string
+      description: |
+        Manager address for enrollment. Overrides config defaults.
+    registration-password:
+      type: string
+      description: |
+        Enrollment password. Overrides config defaults.
+    agent-name:
+      type: string
+      description: |
+        Agent name for enrollment. Overrides config defaults.
+    agent-group:
+      type: string
+      description: |
+        Agent group(s), comma-separated. Overrides config defaults.

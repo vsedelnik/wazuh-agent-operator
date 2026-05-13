@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+"""Show-config action."""
+# Handled by charm.py → _on_show_config_action

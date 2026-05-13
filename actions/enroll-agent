@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+"""Enroll-agent action."""
+# Handled by charm.py → _on_enroll_agent_action

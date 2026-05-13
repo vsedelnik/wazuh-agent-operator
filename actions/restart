@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+"""Restart action."""
+# Handled by charm.py → _on_restart_action
