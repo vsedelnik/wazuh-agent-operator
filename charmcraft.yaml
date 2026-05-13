@@ -1,6 +1,3 @@
-# Copyright 2025 Canonical Ltd.
-# See LICENSE file for licensing details.
-
 type: charm
 bases:
   - build-on:
@@ -9,16 +6,7 @@ bases:
     run-on:
     - name: ubuntu
       channel: "22.04"
-    - name: ubuntu
-      channel: "24.04"
 
 parts:
   charm:
-    build-packages:
-      - git
-    override-build: |
-      craftctl default
-      # Determine version from git tags or fall back
-      if git describe --tags --always 2>/dev/null; then
-        craftctl set version="$(git describe --tags --always)"
-      fi
+    charm-python-packages: [ops]

@@ -242,15 +242,19 @@ class WazuhAgentManager:
             logger.warning("ossec.conf does not exist yet; skipping update.")
             return False
 
-        # Parse and update ossec.conf XML
+        # Parse and update ossec.conf XML.
+        # ossec.conf can have multiple <ossec_config> root elements;
+        # wrap them in a dummy root for valid XML parsing.
         try:
             import xml.etree.ElementTree as ET
         except ImportError:
             logger.error("xml.etree.ElementTree unavailable; cannot update ossec.conf.")
             return False
 
-        tree = ET.parse(WAZUH_OSSEC_CONF)
-        root = tree.getroot()
+        with open(WAZUH_OSSEC_CONF, "r") as f:
+            raw = f.read()
+        wrapped = "<wazuh_root>" + raw + "</wazuh_root>"
+        root = ET.fromstring(wrapped)
 
         changed = False
 
@@ -324,7 +328,13 @@ class WazuhAgentManager:
 
         # Write back if changed
         if changed:
-            tree.write(WAZUH_OSSEC_CONF, encoding="utf-8", xml_declaration=True)
+            # Serialize each <ossec_config> block back as individual XML documents
+            blocks = []
+            for child in root:
+                block = ET.tostring(child, encoding="unicode")
+                blocks.append(block.strip())
+            with open(WAZUH_OSSEC_CONF, "w") as f:
+                f.write("\n\n".join(blocks) + "\n")
             logger.info("ossec.conf updated successfully.")
 
         return changed
@@ -423,8 +433,11 @@ class WazuhAgentManager:
         try:
             import xml.etree.ElementTree as ET
 
-            tree = ET.parse(WAZUH_OSSEC_CONF)
-            client = tree.find("client")
+            with open(WAZUH_OSSEC_CONF, "r") as f:
+                raw = f.read()
+            wrapped = "<wazuh_root>" + raw + "</wazuh_root>"
+            root = ET.fromstring(wrapped)
+            client = root.find("client")
             if client is not None:
                 ET.indent(client, space="  ")
                 return ET.tostring(client, encoding="unicode")

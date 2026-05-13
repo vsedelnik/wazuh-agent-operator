@@ -65,20 +65,7 @@ requires:
       Relation with a Wazuh server charm providing manager address,
       enrollment credentials, and registration configuration.
     limit: 1
-  juju-info:
-    interface: juju-info
-    description: |
-      Optional endpoint for subordinate deployment alongside
-      a principal charm.
-    scope: container
-    optional: true
 
 peers:
   agent-peers:
     interface: wazuh_agent_peers
-
-resources: {}
-
-storage: {}
-
-containers: {}
